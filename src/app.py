@@ -1,13 +1,22 @@
 import streamlit as st
 import pandas as pd
 
-from src.database.db import init_db, get_db_connection
+from src.database.db import init_db, get_db_connection, reset_database
 from src.auth.auth import authenticate_user, add_user, get_user_by_session
 from src.ui.components import render_login_form, render_register_form, render_sidebar
-from src.ui.pages import render_dashboard, render_projects_page, render_problems_page
+from src.ui.pages import (
+    render_dashboard, 
+    render_projects_page, 
+    render_problems_page,
+    render_categories_page,
+    render_users_page,
+    render_analytics_page
+)
 
 # Initialize the database when the app starts
 init_db()
+# Reset database to ensure schema is correct (comment this out after first run)
+# reset_database()
 
 # Set page configuration
 st.set_page_config(layout="wide", page_title="Team Project & Problem Tracker")
@@ -123,4 +132,10 @@ else:
         render_projects_page(projects_df, users_df)
     elif page == "Problems":
         render_problems_page(problems_df, projects_df, categories_df)
+    elif page == "Categories":
+        render_categories_page(categories_df)
+    elif page == "Users":
+        render_users_page(users_df, projects_df, problems_df)
+    elif page == "Analytics":
+        render_analytics_page(projects_df, problems_df, categories_df)
     # TODO: Add other pages (Categories, Users, Analytics) 

@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+import sqlite3
 import streamlit as st
 from typing import Optional
 from src.database.db import get_db_connection
