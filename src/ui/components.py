@@ -59,7 +59,7 @@ def render_sidebar(current_user: str) -> str:
         str: The selected page name.
     """
     st.sidebar.title("Navigation")
-    page = st.sidebar.radio("Go to", ["Dashboard", "Projects", "Problems", "Categories", "Users", "Analytics"])
+    page = st.sidebar.radio("Go to", ["Dashboard", "Projects", "Problems", "Categories", "Users", "Analytics", "Leaderboard"])
     
     st.sidebar.header("Current User")
     st.sidebar.write(f"Logged in as: {current_user}")

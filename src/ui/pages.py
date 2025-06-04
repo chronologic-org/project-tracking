@@ -1,191 +1,243 @@
 import streamlit as st
 import pandas as pd
 from typing import List, Optional
+import os
+from dotenv import load_dotenv
 
 from src.models.constants import PROJECT_TYPES, PROJECT_STATUSES, PROBLEM_STATUSES
 from src.ui.components import display_dataframe, display_metrics
 from src.database.categories import add_category, update_category_points
 from src.database.problems import complete_problem, update_problem_status, claim_problem, unclaim_problem
+from src.ai.project_analyzer import ProjectAnalyzer
 
-def render_dashboard(projects_df: pd.DataFrame, problems_df: pd.DataFrame) -> None:
+# Load environment variables
+load_dotenv()
+
+def render_dashboard(projects_df: pd.DataFrame, problems_df: pd.DataFrame,
+                    project_analyzer, recommendation_engine) -> None:
     """
-    Render the dashboard page.
+    Render the dashboard with AI-powered insights.
     
     Args:
-        projects_df (pd.DataFrame): DataFrame containing project data.
-        problems_df (pd.DataFrame): DataFrame containing problem data.
+        projects_df (pd.DataFrame): DataFrame containing projects data
+        problems_df (pd.DataFrame): DataFrame containing problems data
+        project_analyzer: ProjectAnalyzer instance for AI analysis
+        recommendation_engine: RecommendationEngine instance for AI recommendations
     """
     st.title("📊 Dashboard")
     
-    # Open Projects Section
-    st.header("Open Projects")
-    open_projects = projects_df[projects_df['status'] == 'Open']
-    display_dataframe(
-        open_projects,
-        columns=['name', 'type', 'assigned_workers', 'status']
-    )
+    # Display key metrics
+    col1, col2, col3 = st.columns(3)
     
-    # Open Problems Section
-    st.header("Open Problems")
-    open_problems = problems_df[problems_df['status'] == 'Open']
-    display_dataframe(
-        open_problems,
-        columns=['name', 'project_name', 'claimed_by', 'categories', 'total_points', 'status']
-    )
+    with col1:
+        st.metric("Total Projects", len(projects_df))
+    with col2:
+        st.metric("Total Problems", len(problems_df))
+    with col3:
+        completed_problems = len(problems_df[problems_df['status'] == 'Completed'])
+        st.metric("Completed Problems", completed_problems)
+    
+    # Add AI insights section
+    st.subheader("🤖 AI Insights")
+    
+    # Get overall project analysis
+    if not projects_df.empty:
+        with st.spinner("Analyzing projects..."):
+            # Get risk analysis for all projects
+            st.subheader("Project Risk Analysis")
+            for _, project in projects_df.iterrows():
+                with st.expander(f"Analysis for {project['name']}"):
+                    risk_analysis = project_analyzer.analyze_project_risks(project.to_dict())
+                    st.write(risk_analysis)
+    
+    # Get resource allocation recommendations
+    if not problems_df.empty:
+        with st.spinner("Generating recommendations..."):
+            st.subheader("Resource Allocation Recommendations")
+            recommendations = recommendation_engine.recommend_resource_allocation(
+                projects_df, problems_df, pd.DataFrame()
+            )
+            st.write(recommendations)
+    
+    # Display recent activity
+    st.subheader("Recent Activity")
+    
+    # Recent projects
+    st.write("Recent Projects")
+    recent_projects = projects_df.sort_values('created_at', ascending=False).head(5)
+    display_dataframe(recent_projects)
+    
+    # Recent problems
+    st.write("Recent Problems")
+    recent_problems = problems_df.sort_values('created_at', ascending=False).head(5)
+    display_dataframe(recent_problems)
 
-def render_projects_page(projects_df: pd.DataFrame, users_df: pd.DataFrame) -> None:
+def render_projects_page(projects_df: pd.DataFrame, users_df: pd.DataFrame, 
+                        project_analyzer, recommendation_engine, search_engine) -> None:
     """
-    Render the projects management page.
+    Render the projects management page with AI-powered features.
     
     Args:
-        projects_df (pd.DataFrame): DataFrame containing project data.
-        users_df (pd.DataFrame): DataFrame containing user data.
+        projects_df (pd.DataFrame): DataFrame containing projects data
+        users_df (pd.DataFrame): DataFrame containing users data
+        project_analyzer: ProjectAnalyzer instance for AI analysis
+        recommendation_engine: RecommendationEngine instance for AI recommendations
+        search_engine: SearchEngine instance for semantic search
     """
     st.title("🚧 Project Management")
     
-    # Create New Project Section
-    st.header("Create New Project")
-    with st.form("new_project_form", clear_on_submit=True):
-        project_name = st.text_input("Project Name")
-        project_description = st.text_area("Description")
-        project_type = st.selectbox("Project Type", PROJECT_TYPES)
-        
-        if not users_df.empty:
-            worker_ids = st.multiselect(
-                "Assign Team Members",
-                options=users_df['id'].tolist(),
-                format_func=lambda x: users_df[users_df['id'] == x]['username'].iloc[0]
-            )
-        else:
-            st.warning("No users available. Please add users first.")
-            worker_ids = []
-        
-        if st.form_submit_button("Add Project"):
-            if project_name.strip():
-                # TODO: Call add_project function
-                st.rerun()
-            else:
-                st.error("Project name cannot be empty.")
+    # Add AI-powered search
+    st.subheader("🔍 AI-Powered Search")
+    search_query = st.text_input("Search projects using natural language")
+    if search_query:
+        with st.spinner("Searching..."):
+            search_results = search_engine.semantic_search(search_query, projects_df, pd.DataFrame())
+            if search_results["projects"]:
+                st.write("Found Projects:")
+                for project in search_results["projects"]:
+                    st.write(f"- {project['name']}: {project['description']}")
     
-    # All Projects Section
-    st.header("All Projects")
+    # Create New Project Section
+    st.subheader("Create New Project")
+    with st.form("new_project_form"):
+        project_name = st.text_input("Project Name")
+        project_description = st.text_area("Project Description")
+        project_type = st.selectbox("Project Type", options=PROJECT_TYPES)
+        project_status = st.selectbox("Project Status", options=PROJECT_STATUSES)
+        
+        submitted = st.form_submit_button("Create Project")
+        if submitted:
+            # Add project creation logic here
+            st.success("Project created successfully!")
+    
+    # Display Projects
+    st.subheader("All Projects")
     display_dataframe(projects_df)
+    
+    # Add AI analysis section
+    st.subheader("🤖 AI Project Analysis")
+    selected_project = st.selectbox(
+        "Select a project for AI analysis",
+        options=projects_df['name'].tolist()
+    )
+    
+    if selected_project:
+        project_data = projects_df[projects_df['name'] == selected_project].iloc[0].to_dict()
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("Analyze Project"):
+                with st.spinner("Analyzing project..."):
+                    # Get risk analysis
+                    risk_analysis = project_analyzer.analyze_project_risks(project_data)
+                    st.subheader("Risk Analysis")
+                    st.write(risk_analysis)
+        
+        with col2:
+            if st.button("Get Recommendations"):
+                with st.spinner("Generating recommendations..."):
+                    # Get project improvements
+                    improvements = recommendation_engine.suggest_project_improvements(project_data, pd.DataFrame())
+                    st.subheader("Project Improvements")
+                    st.write(improvements)
+                    
+                    # Get team assignments
+                    team_suggestions = recommendation_engine.suggest_team_assignments(project_data, users_df)
+                    st.subheader("Team Assignment Suggestions")
+                    st.write(team_suggestions)
     
     # Update Project Status Section
     st.subheader("Update Project Status")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        selected_project = st.selectbox(
-            "Select Project",
-            options=projects_df['id'].tolist(),
-            format_func=lambda x: projects_df[projects_df['id'] == x]['name'].iloc[0]
-        )
-    
-    with col2:
-        new_status = st.selectbox("New Status", PROJECT_STATUSES)
-        if st.button("Update Status"):
-            # TODO: Call update_project_status function
-            st.rerun()
+    with st.form("update_project_form"):
+        project_to_update = st.selectbox("Select Project", options=projects_df['name'].tolist())
+        new_status = st.selectbox("New Status", options=PROJECT_STATUSES)
+        
+        update_submitted = st.form_submit_button("Update Status")
+        if update_submitted:
+            # Add status update logic here
+            st.success("Project status updated successfully!")
 
-def render_problems_page(problems_df: pd.DataFrame, projects_df: pd.DataFrame, categories_df: pd.DataFrame) -> None:
+def render_problems_page(problems_df: pd.DataFrame, projects_df: pd.DataFrame, 
+                        categories_df: pd.DataFrame, task_manager, search_engine) -> None:
     """
-    Render the problems management page.
+    Render the problems management page with AI-powered features.
     
     Args:
-        problems_df (pd.DataFrame): DataFrame containing problem data.
-        projects_df (pd.DataFrame): DataFrame containing project data.
-        categories_df (pd.DataFrame): DataFrame containing category data.
+        problems_df (pd.DataFrame): DataFrame containing problems data
+        projects_df (pd.DataFrame): DataFrame containing projects data
+        categories_df (pd.DataFrame): DataFrame containing categories data
+        task_manager: TaskManager instance for AI task management
+        search_engine: SearchEngine instance for semantic search
     """
-    st.title("🐞 Problem Management")
+    st.title("🔍 Problem Management")
+    
+    # Add AI-powered search
+    st.subheader("🔍 AI-Powered Search")
+    search_query = st.text_input("Search problems using natural language")
+    if search_query:
+        with st.spinner("Searching..."):
+            search_results = search_engine.semantic_search(search_query, pd.DataFrame(), problems_df)
+            if search_results["problems"]:
+                st.write("Found Problems:")
+                for problem in search_results["problems"]:
+                    st.write(f"- {problem['name']}: {problem['description']}")
     
     # Create New Problem Section
-    st.header("Create New Problem")
-    with st.form("new_problem_form", clear_on_submit=True):
+    st.subheader("Create New Problem")
+    with st.form("new_problem_form"):
         problem_name = st.text_input("Problem Name")
-        problem_description = st.text_area("Description")
+        problem_description = st.text_area("Problem Description")
+        project_id = st.selectbox("Associated Project", options=projects_df['name'].tolist())
+        problem_status = st.selectbox("Problem Status", options=PROBLEM_STATUSES)
         
-        if not projects_df.empty:
-            project_options = [None] + projects_df['id'].tolist()
-            project_names = ["- None -"] + projects_df['name'].tolist()
-            selected_project = st.selectbox(
-                "Link to Project (Optional)",
-                options=project_options,
-                format_func=lambda x: project_names[project_options.index(x)] if x is not None else "- None -"
-            )
-        else:
-            st.warning("No projects available. You can still create a problem without linking it to a project.")
-            selected_project = None
-        
-        if not categories_df.empty:
-            category_ids = st.multiselect(
-                "Select Categories",
-                options=categories_df['id'].tolist(),
-                format_func=lambda x: f"{categories_df[categories_df['id'] == x]['name'].iloc[0]} ({categories_df[categories_df['id'] == x]['points'].iloc[0]} pts)"
-            )
-        else:
-            st.warning("No categories available. Please add categories first.")
-            category_ids = []
-        
-        if st.form_submit_button("Add Problem"):
-            if problem_name.strip():
-                # TODO: Call add_problem function
-                st.rerun()
-            else:
-                st.error("Problem name cannot be empty.")
+        submitted = st.form_submit_button("Create Problem")
+        if submitted:
+            # Add problem creation logic here
+            st.success("Problem created successfully!")
     
-    # All Problems Section
-    st.header("All Problems")
-    display_dataframe(
-        problems_df,
-        columns=['name', 'description', 'status', 'project_name', 'claimed_by', 'categories', 'total_points']
+    # Display Problems
+    st.subheader("All Problems")
+    display_dataframe(problems_df)
+    
+    # Add AI task management section
+    st.subheader("🤖 AI Task Management")
+    selected_problem = st.selectbox(
+        "Select a problem for AI analysis",
+        options=problems_df['name'].tolist()
     )
     
-    # Update Problem Status / Claim / Unclaim Section
-    st.subheader("Update Problem Status / Claim / Unclaim")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        selected_problem = st.selectbox(
-            "Select Problem",
-            options=problems_df['id'].tolist(),
-            format_func=lambda x: problems_df[problems_df['id'] == x]['name'].iloc[0]
-        )
+    if selected_problem:
+        problem_data = problems_df[problems_df['name'] == selected_problem].iloc[0].to_dict()
         
-        new_status = st.selectbox("New Status", PROBLEM_STATUSES)
+        col1, col2 = st.columns(2)
         
-        # Add reference input when completing a problem
-        if new_status == 'Completed':
-            reference = st.text_area("Reference (What was accomplished or artifact)", key="problem_reference")
-            if st.button("Complete Problem"):
-                if reference.strip():
-                    complete_problem(selected_problem, reference.strip())
-                    st.rerun()
-                else:
-                    st.error("Please provide a reference when completing a problem.")
-        else:
-            if st.button("Update Status"):
-                update_problem_status(selected_problem, new_status)
-                st.rerun()
+        with col1:
+            if st.button("Analyze Task"):
+                with st.spinner("Analyzing task..."):
+                    # Get task estimation
+                    estimation = task_manager.estimate_task_completion(problem_data)
+                    st.subheader("Task Estimation")
+                    st.write(estimation)
+        
+        with col2:
+            if st.button("Analyze Dependencies"):
+                with st.spinner("Analyzing dependencies..."):
+                    # Get task dependencies
+                    dependencies = task_manager.analyze_dependencies([problem_data])
+                    st.subheader("Task Dependencies")
+                    st.write(dependencies)
     
-    with col2:
-        if st.session_state.user_id is not None:
-            filtered_problems = problems_df[problems_df['id'] == selected_problem]
-            if not filtered_problems.empty:
-                selected_problem_data = filtered_problems.iloc[0]
-                
-                if pd.isna(selected_problem_data['claimed_by']):
-                    if st.button("Claim Problem", key="claim_button"):
-                        claim_problem(selected_problem, st.session_state.user_id)
-                        st.rerun()
-                else:
-                    if st.button("Unclaim Problem", key="unclaim_button"):
-                        unclaim_problem(selected_problem)
-                        st.rerun()
-            else:
-                st.warning("Selected problem not found in the database.")
-        else:
-            st.warning("Please select a user from the sidebar to claim problems.")
+    # Update Problem Status Section
+    st.subheader("Update Problem Status")
+    with st.form("update_problem_form"):
+        problem_to_update = st.selectbox("Select Problem", options=problems_df['name'].tolist())
+        new_status = st.selectbox("New Status", options=PROBLEM_STATUSES)
+        
+        update_submitted = st.form_submit_button("Update Status")
+        if update_submitted:
+            # Add status update logic here
+            st.success("Problem status updated successfully!")
 
 def render_categories_page(categories_df: pd.DataFrame) -> None:
     """

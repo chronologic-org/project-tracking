@@ -1,3 +1,9 @@
-streamlit>=1.32.0
-pandas>=2.2.0
-sqlite3
+streamlit
+pandas
+langchain
+langchain-community
+langchain-openai
+openai
+python-dotenv
+numpy
+faiss-cpu 

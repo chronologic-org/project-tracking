@@ -1,9 +1,12 @@
 import streamlit as st
 import pandas as pd
+import os
+from dotenv import load_dotenv
 
 from src.database.db import init_db, get_db_connection, reset_database
 from src.auth.auth import authenticate_user, add_user, get_user_by_session
 from src.ui.components import render_login_form, render_register_form, render_sidebar
+from src.database.leaderboard import display_leaderboard
 from src.ui.pages import (
     render_dashboard, 
     render_projects_page, 
@@ -12,11 +15,24 @@ from src.ui.pages import (
     render_users_page,
     render_analytics_page
 )
+from src.ai.project_analyzer import ProjectAnalyzer
+from src.ai.task_manager import TaskManager
+from src.ai.search_engine import SearchEngine
+from src.ai.recommendation_engine import RecommendationEngine
+
+# Load environment variables
+load_dotenv()
 
 # Initialize the database when the app starts
 init_db()
 # Reset database to ensure schema is correct (comment this out after first run)
 # reset_database()
+
+# Initialize AI components
+project_analyzer = ProjectAnalyzer(api_key=os.getenv("OPENAI_API_KEY"))
+task_manager = TaskManager(api_key=os.getenv("OPENAI_API_KEY"))
+search_engine = SearchEngine(api_key=os.getenv("OPENAI_API_KEY"))
+recommendation_engine = RecommendationEngine(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Set page configuration
 st.set_page_config(layout="wide", page_title="Team Project & Problem Tracker")
@@ -125,17 +141,19 @@ else:
     finally:
         conn.close()
     
-    # Render the selected page
+    # Render the selected page with AI components
     if page == "Dashboard":
-        render_dashboard(projects_df, problems_df)
+        render_dashboard(projects_df, problems_df, project_analyzer, recommendation_engine)
     elif page == "Projects":
-        render_projects_page(projects_df, users_df)
+        render_projects_page(projects_df, users_df, project_analyzer, recommendation_engine, search_engine)
     elif page == "Problems":
-        render_problems_page(problems_df, projects_df, categories_df)
+        render_problems_page(problems_df, projects_df, categories_df, task_manager, search_engine)
     elif page == "Categories":
         render_categories_page(categories_df)
     elif page == "Users":
-        render_users_page(users_df, projects_df, problems_df)
+        render_users_page(users_df, projects_df, problems_df, recommendation_engine)
     elif page == "Analytics":
-        render_analytics_page(projects_df, problems_df, categories_df)
+        render_analytics_page(projects_df, problems_df, categories_df, project_analyzer)
+    elif page == "Leaderboard":
+        display_leaderboard()
     # TODO: Add other pages (Categories, Users, Analytics) 
