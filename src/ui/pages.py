@@ -5,6 +5,7 @@ from typing import List, Optional
 from src.models.constants import PROJECT_TYPES, PROJECT_STATUSES, PROBLEM_STATUSES
 from src.ui.components import display_dataframe, display_metrics
 from src.database.categories import add_category, update_category_points
+from src.database.problems import complete_problem, update_problem_status, claim_problem, unclaim_problem
 
 def render_dashboard(projects_df: pd.DataFrame, problems_df: pd.DataFrame) -> None:
     """
@@ -152,9 +153,20 @@ def render_problems_page(problems_df: pd.DataFrame, projects_df: pd.DataFrame, c
         )
         
         new_status = st.selectbox("New Status", PROBLEM_STATUSES)
-        if st.button("Update Status"):
-            # TODO: Call update_problem_status function
-            st.rerun()
+        
+        # Add reference input when completing a problem
+        if new_status == 'Completed':
+            reference = st.text_area("Reference (What was accomplished or artifact)", key="problem_reference")
+            if st.button("Complete Problem"):
+                if reference.strip():
+                    complete_problem(selected_problem, reference.strip())
+                    st.rerun()
+                else:
+                    st.error("Please provide a reference when completing a problem.")
+        else:
+            if st.button("Update Status"):
+                update_problem_status(selected_problem, new_status)
+                st.rerun()
     
     with col2:
         if st.session_state.user_id is not None:
@@ -164,11 +176,11 @@ def render_problems_page(problems_df: pd.DataFrame, projects_df: pd.DataFrame, c
                 
                 if pd.isna(selected_problem_data['claimed_by']):
                     if st.button("Claim Problem", key="claim_button"):
-                        # TODO: Call claim_problem function
+                        claim_problem(selected_problem, st.session_state.user_id)
                         st.rerun()
                 else:
                     if st.button("Unclaim Problem", key="unclaim_button"):
-                        # TODO: Call unclaim_problem function
+                        unclaim_problem(selected_problem)
                         st.rerun()
             else:
                 st.warning("Selected problem not found in the database.")
