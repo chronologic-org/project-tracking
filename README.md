@@ -1,83 +1,73 @@
 # Team Project & Problem Tracker
 
-A comprehensive, lightweight, internal team application for tracking projects and problems, including detailed analytics. Built with Python, Streamlit, and SQLite.
+A Streamlit application for tracking team projects and problems, with features for user management, project tracking, and problem resolution.
 
 ## Features
 
-- Project Management
-  - Create and track projects with different durations (1-4 weeks)
-  - Assign team members to projects
-  - Update project status (Open, In Progress, Completed)
-  - Track project completion times
+- User authentication and registration
+- Project management with team assignments
+- Problem tracking with categories and points
+- Analytics dashboard
+- User role management
 
-- Problem Management
-  - Create and track problems
-  - Link problems to projects
-  - Assign categories with point values
-  - Claim/unclaim problems
-  - Update problem status
-  - Track problem completion times
+## Project Structure
 
-- Category Management
-  - Create categories with point values
-  - Track problem completion by category
-
-- User Management
-  - Add team members
-  - Track problem assignments and completions
-
-- Analytics Dashboard
-  - Overall progress metrics
-  - Problem completion by category
-  - Problem completion time analysis
-  - Project status breakdown
-  - Problem status by user
-
-## Requirements
-
-- Python 3.x
-- streamlit
-- pandas
-- sqlite3 (included in Python standard library)
-
-## Installation
-
-1. Clone the repository or download the source code.
-
-2. Install the required packages:
-```bash
-pip install streamlit pandas
+```
+src/
+├── database/
+│   └── db.py           # Database connection and initialization
+├── auth/
+│   └── auth.py         # Authentication and user management
+├── models/
+│   └── constants.py    # Application constants
+├── ui/
+│   ├── components.py   # Reusable UI components
+│   └── pages.py        # Page-specific UI components
+└── app.py             # Main application file
 ```
 
-## Running the Application
+## Setup
 
-1. Navigate to the project directory in your terminal.
-
-2. Run the Streamlit application:
+1. Create a virtual environment:
 ```bash
-streamlit run app.py
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-3. The application will open in your default web browser at `http://localhost:8501`.
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the application:
+```bash
+streamlit run src/app.py
+```
 
 ## Usage
 
-1. First, add users using the "Add New User" section in the sidebar.
+1. Register a new user account
+2. Log in with your credentials
+3. Navigate through different sections using the sidebar:
+   - Dashboard: Overview of open projects and problems
+   - Projects: Create and manage projects
+   - Problems: Track and resolve problems
+   - Categories: Manage problem categories
+   - Users: View user details and assignments
+   - Analytics: View project and problem statistics
 
-2. Create categories with point values in the Categories page.
+## Development
 
-3. Create projects and assign team members in the Projects page.
+The application is structured into several modules:
 
-4. Create problems, assign categories, and link them to projects in the Problems page.
+- `database/`: Database connection and schema management
+- `auth/`: User authentication and session management
+- `models/`: Data models and constants
+- `ui/`: User interface components and pages
 
-5. Use the Dashboard to view open projects and problems.
+To add new features:
 
-6. Monitor progress and analyze data in the Analytics page.
-
-## Database
-
-The application uses SQLite as its database, stored in `tracker.db`. The database is automatically created and initialized when you first run the application.
-
-## Contributing
-
-Feel free to submit issues and enhancement requests!
+1. Add necessary database tables in `database/db.py`
+2. Create UI components in `ui/components.py`
+3. Add page-specific logic in `ui/pages.py`
+4. Update the main application in `app.py`
